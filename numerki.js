@@ -1,0 +1,1 @@
+window.NUMERKI_DATA = {"updated": "2026-11-24T21:00:00+00:00", "entries": {"2026-11-25": [2, 24]}};

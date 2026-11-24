@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Szczęśliwe numerki</title>
+<style>
+  :root {
+    --bg:#f6f7fb; --card:#fff; --ink:#14213d; --muted:#6b7280; --line:#e5e7eb;
+    --accent:#0d1b3e; --gold:#f5b700; --good:#16a34a; --bad:#dc2626;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0b1220; --card:#131c2e; --ink:#e8ecf5; --muted:#93a0b8; --line:#243049; --accent:#8fb0ff; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink); }
+  header { padding:20px 16px 0; max-width:900px; margin:0 auto; }
+  h1 { margin:0; font-size:1.5rem; }
+  .sub { color:var(--muted); font-size:.85rem; margin-top:2px; }
+  nav { display:flex; gap:6px; max-width:900px; margin:16px auto 0; padding:0 16px; border-bottom:1px solid var(--line); }
+  nav button { background:none; border:0; padding:10px 14px; font:inherit; color:var(--muted); cursor:pointer; border-bottom:3px solid transparent; }
+  nav button[aria-selected="true"] { color:var(--ink); border-color:var(--gold); font-weight:600; }
+  main { max-width:900px; margin:0 auto; padding:16px; }
+  section[hidden] { display:none; }
+  .weeknav { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; }
+  .weeknav button { background:var(--card); border:1px solid var(--line); color:var(--ink); border-radius:8px; padding:6px 12px; cursor:pointer; font:inherit; }
+  .weeknav .label { font-weight:600; text-align:center; flex:1; }
+  .days { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; }
+  @media (max-width:640px) { .days { grid-template-columns:1fr; } }
+  .day { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; text-align:center; }
+  .day.today { border-color:var(--gold); box-shadow:0 0 0 2px color-mix(in srgb,var(--gold) 35%,transparent); }
+  .dow { font-weight:600; }
+  .date { color:var(--muted); font-size:.85rem; margin-bottom:8px; }
+  .balls { display:flex; gap:8px; justify-content:center; min-height:48px; align-items:center; }
+  .ball { width:46px; height:46px; border-radius:50%; background:var(--accent); color:var(--card); display:grid; place-items:center; font-weight:700; font-size:1.15rem; }
+  @media (prefers-color-scheme: dark) { .ball { color:#0b1220; } }
+  .none { color:var(--muted); font-size:.85rem; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:14px; }
+  .card h2 { margin:0 0 8px; font-size:1.05rem; }
+  .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .chip { display:inline-flex; align-items:center; gap:6px; background:var(--bg); border:1px solid var(--line); border-radius:999px; padding:3px 10px; font-size:.9rem; }
+  .chip b { font-size:1rem; }
+  table { width:100%; border-collapse:collapse; font-size:.92rem; }
+  th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); }
+  th { color:var(--muted); font-weight:500; }
+  input[type=number] { font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--ink); width:110px; }
+  .big { font-size:1.2rem; margin:12px 0 4px; }
+  .muted { color:var(--muted); font-size:.85rem; }
+  .bar { height:8px; background:var(--accent); border-radius:4px; min-width:2px; }
+  #err { background:color-mix(in srgb,var(--bad) 12%,var(--card)); border:1px solid var(--bad); padding:10px 14px; border-radius:10px; display:none; margin-bottom:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>⭐ Szczęśliwe numerki</h1>
+  <div class="sub" id="updated">Wczytuję dane…</div>
+</header>
+<nav role="tablist">
+  <button role="tab" aria-selected="true" data-tab="week">Ten tydzień</button>
+  <button role="tab" aria-selected="false" data-tab="stats">Statystyki</button>
+  <button role="tab" aria-selected="false" data-tab="search">Szukaj numerka</button>
+</nav>
+<main>
+  <div id="err"></div>
+
+  <section id="week">
+    <div class="weeknav">
+      <button id="prev" aria-label="Poprzedni tydzień">← Poprzedni</button>
+      <div class="label" id="weeklabel"></div>
+      <button id="next" aria-label="Następny tydzień">Następny →</button>
+    </div>
+    <div class="days" id="days"></div>
+    <p class="muted" id="weekhint"></p>
+  </section>
+
+  <section id="stats" hidden>
+    <div class="card">
+      <h2>Najczęściej losowane</h2>
+      <div class="row" id="most"></div>
+    </div>
+    <div class="card">
+      <h2>Najrzadziej losowane</h2>
+      <p class="muted">Zakres numerków w szkole:
+        1 – <input type="number" id="maxnum" min="1" max="99" value="35">
+        (numerki, które jeszcze nie padły, liczą się jako 0 razy)</p>
+      <div class="row" id="least"></div>
+    </div>
+    <div class="card">
+      <h2>Wszystkie numerki</h2>
+      <table><thead><tr><th>Numerek</th><th>Razy</th><th></th><th>Ostatnio</th></tr></thead><tbody id="alltable"></tbody></table>
+    </div>
+    <p class="muted" id="statsnote"></p>
+  </section>
+
+  <section id="search" hidden>
+    <div class="card">
+      <h2>Sprawdź numerek</h2>
+      <input type="number" id="q" min="0" max="999" placeholder="np. 21" autofocus>
+      <div id="result"></div>
+    </div>
+  </section>
+</main>
+
+<script src="data/numerki.js"></script>
+<script>
+const DOW = ["Poniedziałek","Wtorek","Środa","Czwartek","Piątek"];
+const MON = ["sty","lut","mar","kwi","maj","cze","lip","sie","wrz","paź","lis","gru"];
+let entries = {};   // { "2026-11-25": [2,24] }
+let weekOffset = 0;
+
+const pad = n => String(n).padStart(2,"0");
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const fmt = s => { const [y,m,d] = s.split("-").map(Number); return `${d}.${pad(m)}.${y}`; };
+const fmtShort = d => `${d.getDate()} ${MON[d.getMonth()]}`;
+
+function mondayOf(date) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dow = (d.getDay() + 6) % 7; // pon=0
+  d.setDate(d.getDate() - dow);
+  return d;
+}
+
+// Statystyki: { num -> {count, dates[]} }
+function computeStats(ent) {
+  const st = {};
+  for (const [date, nums] of Object.entries(ent)) {
+    for (const n of new Set(nums)) {
+      (st[n] ||= {count:0, dates:[]});
+      st[n].count++; st[n].dates.push(date);
+    }
+  }
+  for (const v of Object.values(st)) v.dates.sort();
+  return st;
+}
+
+function renderWeek() {
+  let monday = mondayOf(new Date());
+  monday.setDate(monday.getDate() + weekOffset * 7);
+  const friday = new Date(monday); friday.setDate(friday.getDate() + 4);
+  document.getElementById("weeklabel").textContent =
+    `${monday.getDate()}.${pad(monday.getMonth()+1)} – ${friday.getDate()}.${pad(friday.getMonth()+1)}.${friday.getFullYear()}` +
+    (weekOffset === 0 ? " (bieżący tydzień)" : "");
+  const todayIso = iso(new Date());
+  const box = document.getElementById("days");
+  box.innerHTML = "";
+  let missing = 0;
+  for (let i = 0; i < 5; i++) {
+    const d = new Date(monday); d.setDate(d.getDate() + i);
+    const key = iso(d);
+    const nums = entries[key];
+    const el = document.createElement("div");
+    el.className = "day" + (key === todayIso ? " today" : "");
+    const balls = nums
+      ? nums.map(n => `<div class="ball">${n}</div>`).join("")
+      : `<span class="none">${key > todayIso ? "jeszcze nie wylosowano" : "brak danych"}</span>`;
+    if (!nums && key <= todayIso) missing++;
+    el.innerHTML = `<div class="dow">${DOW[i]}</div><div class="date">${fmtShort(d)}</div><div class="balls">${balls}</div>`;
+    box.appendChild(el);
+  }
+  document.getElementById("weekhint").textContent = missing
+    ? "„Brak danych” oznacza dni, w których strona nie była jeszcze zapisywana (historia zbiera się od momentu uruchomienia)."
+    : "";
+}
+
+function chips(list, st) {
+  return list.map(n => `<span class="chip"><b>${n}</b> × ${st[n]?.count || 0}</span>`).join("") || "<span class='muted'>brak danych</span>";
+}
+
+function renderStats() {
+  const st = computeStats(entries);
+  const maxN = Math.max(1, parseInt(document.getElementById("maxnum").value) || 35);
+  const observed = Object.keys(st).map(Number);
+  const total = Object.keys(entries).length;
+  const note = document.getElementById("statsnote");
+
+  if (!observed.length) {
+    document.getElementById("most").innerHTML = "<span class='muted'>brak danych</span>";
+    document.getElementById("least").innerHTML = "<span class='muted'>brak danych</span>";
+    document.getElementById("alltable").innerHTML = "";
+    note.textContent = "";
+    return;
+  }
+
+  const top = Math.max(...observed.map(n => st[n].count));
+  document.getElementById("most").innerHTML =
+    chips(observed.filter(n => st[n].count === top).sort((a,b)=>a-b), st);
+
+  const range = Array.from({length: Math.max(maxN, ...observed)}, (_, i) => i + 1);
+  const low = Math.min(...range.map(n => st[n]?.count || 0));
+  document.getElementById("least").innerHTML =
+    chips(range.filter(n => (st[n]?.count || 0) === low), st) +
+    (low === 0 ? "<span class='muted'>(jeszcze nie padły)</span>" : "");
+
+  document.getElementById("alltable").innerHTML = range.map(n => {
+    const s = st[n];
+    const w = s ? Math.round(s.count / top * 140) : 0;
+    return `<tr><td><b>${n}</b></td><td>${s ? s.count : 0}</td>` +
+           `<td><div class="bar" style="width:${w}px;${s ? "" : "visibility:hidden"}"></div></td>` +
+           `<td>${s ? fmt(s.dates[s.dates.length-1]) : "—"}</td></tr>`;
+  }).join("");
+
+  note.textContent = `Dane z ${total} ${total === 1 ? "dnia" : "dni"} (od ${fmt(Object.keys(entries).sort()[0])}). Im dłużej działa zbieranie, tym wiarygodniejsze statystyki.`;
+}
+
+function renderSearch() {
+  const out = document.getElementById("result");
+  const raw = document.getElementById("q").value.trim();
+  if (raw === "") { out.innerHTML = ""; return; }
+  const n = parseInt(raw, 10);
+  const s = computeStats(entries)[n];
+  if (!s) {
+    out.innerHTML = `<p class="big">Numerek <b>${n}</b> jeszcze nie był losowany.</p>`;
+    return;
+  }
+  const last = s.dates[s.dates.length - 1];
+  out.innerHTML =
+    `<p class="big">Numerek <b>${n}</b> był losowany <b>${s.count}</b> ${s.count === 1 ? "raz" : "razy"}.</p>` +
+    `<p>Ostatnio: <b>${fmt(last)}</b></p>` +
+    `<div class="row">${s.dates.slice().reverse().map(d => `<span class="chip">${fmt(d)}</span>`).join("")}</div>`;
+}
+
+// --- zakładki ---
+document.querySelectorAll("nav button").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("nav button").forEach(x => x.setAttribute("aria-selected", x === b));
+  for (const id of ["week","stats","search"]) document.getElementById(id).hidden = (id !== b.dataset.tab);
+  if (b.dataset.tab === "stats") renderStats();
+  if (b.dataset.tab === "search") document.getElementById("q").focus();
+}));
+document.getElementById("prev").onclick = () => { weekOffset--; renderWeek(); };
+document.getElementById("next").onclick = () => { weekOffset++; renderWeek(); };
+document.getElementById("q").addEventListener("input", renderSearch);
+
+const maxInput = document.getElementById("maxnum");
+try { const v = localStorage.getItem("numerki_max"); if (v) maxInput.value = v; } catch (e) {}
+maxInput.addEventListener("input", () => {
+  try { localStorage.setItem("numerki_max", maxInput.value); } catch (e) {}
+  renderStats();
+});
+
+// --- dane (najpierw data/numerki.js, działa też z file://; w razie braku – fetch JSON) ---
+(window.NUMERKI_DATA
+  ? Promise.resolve(window.NUMERKI_DATA)
+  : fetch("data/numerki.json?t=" + Date.now()).then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }))
+  .then(data => {
+    entries = data.entries || {};
+    const u = data.updated ? new Date(data.updated) : null;
+    document.getElementById("updated").textContent =
+      u ? "Ostatnia aktualizacja danych: " + u.toLocaleString("pl-PL") : "";
+    renderWeek(); renderStats(); renderSearch();
+  })
+  .catch(e => {
+    const el = document.getElementById("err");
+    el.style.display = "block";
+    el.textContent = "Nie znaleziono folderu data/ obok index.html (" + e.message + "). Pokazuję tylko dane startowe wbudowane w stronę – rozpakuj cały plik ZIP i otwórz index.html z rozpakowanego folderu.";
+    document.getElementById("updated").textContent = "Dane startowe (wbudowane)";
+    entries = {"2026-11-25": [2, 24]};
+    renderWeek(); renderStats(); renderSearch();
+  });
+</script>
+</body>
+</html>
