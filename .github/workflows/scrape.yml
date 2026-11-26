@@ -2,7 +2,8 @@ name: Pobierz szczęśliwe numerki
 
 on:
   schedule:
-    - cron: "10 * * * *"   # co godzine (czas UTC)
+    - cron: "46 * * * *"
+   # co godzine (czas UTC)
   workflow_dispatch: {}      # ręczne uruchomienie z zakładki Actions
 
 permissions:
@@ -24,7 +25,7 @@ jobs:
             git config user.name "numerki-bot"
             git config user.email "numerki-bot@users.noreply.github.com"
             git add data/numerki.json data/numerki.js
-            git commit -m "Aktualizacja numerków $(date -u +%F\ %H:%M)"
+            git commit -m "Aktualizacja numerków $(date -u +%F\ %H:%M)"S
             git push
           else
             echo "Brak zmian."
