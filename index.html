@@ -53,7 +53,7 @@
 <body>
 <header>
   <h1>⭐ Szczęśliwe numerki</h1>
-  <div class="sub" id="updated">Wczytuję dane…</div>
+  <div class="sub"><span id="updated">Wczytuję dane…</span> <button id="refresh" type="button" style="margin-left:6px;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:6px;padding:2px 8px;font:inherit;font-size:.85rem">↻ Odśwież</button></div>
 </header>
 <nav role="tablist">
   <button role="tab" aria-selected="true" data-tab="week">Ten tydzień</button>
@@ -238,24 +238,42 @@ maxInput.addEventListener("input", () => {
 });
 
 // --- dane (najpierw data/numerki.js, działa też z file://; w razie braku – fetch JSON) ---
-(window.NUMERKI_DATA
-  ? Promise.resolve(window.NUMERKI_DATA)
-  : fetch("data/numerki.json?t=" + Date.now()).then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }))
-  .then(data => {
-    entries = data.entries || {};
-    const u = data.updated ? new Date(data.updated) : null;
-    document.getElementById("updated").textContent =
-      u ? "Ostatnia aktualizacja danych: " + u.toLocaleString("pl-PL") : "";
-    renderWeek(); renderStats(); renderSearch();
-  })
-  .catch(e => {
-    const el = document.getElementById("err");
-    el.style.display = "block";
-    el.textContent = "Nie znaleziono folderu data/ obok index.html (" + e.message + "). Pokazuję tylko dane startowe wbudowane w stronę – rozpakuj cały plik ZIP i otwórz index.html z rozpakowanego folderu.";
-    document.getElementById("updated").textContent = "Dane startowe (wbudowane)";
-    entries = {"2026-11-25": [2, 24]};
-    renderWeek(); renderStats(); renderSearch();
-  });
+// Zawsze próbujemy pobrać ŚWIEŻY JSON (unikalny adres omija pamięć podręczną przeglądarki i GitHuba).
+// Gdy się nie uda (np. otwarcie z dysku, file://), używamy data/numerki.js załadowanego wyżej.
+function fetchData() {
+  return fetch("data/numerki.json?t=" + Date.now(), { cache: "no-store" })
+    .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .catch(err => window.NUMERKI_DATA ? window.NUMERKI_DATA : Promise.reject(err));
+}
+
+function loadData() {
+  const btn = document.getElementById("refresh");
+  btn.disabled = true;
+  return fetchData()
+    .then(data => {
+      entries = data.entries || {};
+      const u = data.updated ? new Date(data.updated) : null;
+      document.getElementById("updated").textContent =
+        (u ? "Ostatnia zmiana danych: " + u.toLocaleString("pl-PL") + " · " : "") +
+        "sprawdzono " + new Date().toLocaleTimeString("pl-PL", {hour: "2-digit", minute: "2-digit"});
+      document.getElementById("err").style.display = "none";
+      renderWeek(); renderStats(); renderSearch();
+    })
+    .catch(e => {
+      const el = document.getElementById("err");
+      el.style.display = "block";
+      el.textContent = "Nie udało się wczytać danych (" + e.message + "). Pokazuję dane startowe wbudowane w stronę.";
+      entries = {"2026-11-25": [2, 24]};
+      renderWeek(); renderStats(); renderSearch();
+    })
+    .finally(() => { btn.disabled = false; });
+}
+
+document.getElementById("refresh").addEventListener("click", loadData);
+loadData();
+// Automatyczne odświeżanie co 5 minut (tylko gdy karta jest widoczna) i po powrocie na kartę
+setInterval(() => { if (!document.hidden) loadData(); }, 5 * 60 * 1000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) loadData(); });
 </script>
 </body>
 </html>
